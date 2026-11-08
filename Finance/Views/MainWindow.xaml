@@ -1,0 +1,475 @@
+﻿<Window
+    x:Class="Finance.Views.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:lvc="clr-namespace:LiveChartsCore.SkiaSharpView.WPF;assembly=LiveChartsCore.SkiaSharpView.WPF"
+    Icon="pack://application:,,,/finico.ico"
+    Title="Finance - Личные финансы" Height="650" Width="1050" WindowStartupLocation="CenterScreen">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,10">
+            <TextBlock x:Name="UserInfoText" VerticalAlignment="Center" FontWeight="Bold" FontSize="14" HorizontalAlignment="Left"/>
+
+            <!-- Кнопка выхода -->
+            <Button Content="🚪 Выйти" Padding="15,5" HorizontalAlignment="Right" Click="Logout_Click" Background="#FFE0E0" BorderBrush="#FFAAAA"/>
+        </Grid>
+
+        <TabControl Grid.Row="1" x:Name="MainTabControl">
+
+            <!-- Вкладка 1: Счета -->
+            <TabItem Header="Мои счета">
+                <Grid Margin="5">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <WrapPanel Grid.Row="0" Margin="0,0,0,10">
+                        <Button Content="➕ Добавить" Padding="10,5" Click="AddAccount_Click"/>
+                        <Button Content="✏️ Редактировать" Padding="10,5" Margin="5,0,0,0" Click="EditAccount_Click"/>
+                        <Button Content="❌ Удалить выбранные" Padding="10,5" Margin="5,0,0,0" Click="DeleteSelectedAccounts_Click"/>
+                        <Button Content="🗑️ Очистить всё" Padding="10,5" Margin="20,0,0,0" Background="#FFE0E0" Click="ClearAllAccounts_Click"/>
+                    </WrapPanel>
+
+                    <!-- Добавлена группировка по Банкам -->
+                    <DataGrid Grid.Row="1" x:Name="AccountsGrid" AutoGenerateColumns="False" IsReadOnly="False" CanUserAddRows="False">
+                        <DataGrid.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="{x:Type GroupItem}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                    <!-- Свойства сворачивания привязаны к Expander -->
+                                                    <Expander IsExpanded="True" Background="#F0F0F0" BorderBrush="Gray" BorderThickness="0,0,0,1">
+                                                        <Expander.Header>
+                                                            <TextBlock FontWeight="Bold" FontSize="14" Text="{Binding Name}" Padding="5" Margin="5,0,0,0"/>
+                                                        </Expander.Header>
+                                                        <!-- Вот эта строка отвечает за скрытие самих строк таблицы -->
+                                                        <Expander.Content>
+                                                            <ItemsPresenter />
+                                                        </Expander.Content>
+                                                    </Expander>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
+                            </GroupStyle>
+                        </DataGrid.GroupStyle>
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="✓" Width="30">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="№" Binding="{Binding RowNumber}" Width="40" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Название счёта" Binding="{Binding account_name}" Width="*" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Номер" Binding="{Binding account_number}" Width="150" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Валюта" Binding="{Binding currency}" Width="80" IsReadOnly="True"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <!-- Вкладка 2: Транзакции -->
+            <TabItem Header="История операций">
+                <Grid Margin="5">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <WrapPanel Grid.Row="0" Margin="0,0,0,10">
+                        <Button Content="➕ Добавить" Padding="10,5" Click="AddTransaction_Click"/>
+                        <Button Content="📥 Импорт (CSV)" Padding="10,5" Margin="5,0,0,0" Click="ImportCsv_Click"/>
+                        <Button Content="✏️ Ред." Padding="10,5" Margin="5,0,0,0" Click="EditTransaction_Click"/>
+                        <Button Content="❌ Удалить" Padding="10,5" Margin="5,0,0,0" Click="DeleteSelectedTransactions_Click"/>
+                        <Button Content="🗑️ Очистить всё" Padding="10,5" Margin="20,0,0,0" Background="#FFE0E0" Click="ClearAllTransactions_Click"/>
+                    </WrapPanel>
+
+                    <!-- Добавлена двойная группировка: Банк -> Счёт -->
+                    <DataGrid Grid.Row="1" x:Name="TransactionsGrid" AutoGenerateColumns="False" IsReadOnly="False" CanUserAddRows="False">
+                        <DataGrid.GroupStyle>
+                            <!-- Первый уровень: Банк -->
+                            <GroupStyle>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="{x:Type GroupItem}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                    <Expander IsExpanded="True" Background="#E0E0E0" Margin="0,5,0,0">
+                                                        <Expander.Header>
+                                                            <TextBlock FontWeight="Bold" FontSize="15" Foreground="#333" Text="{Binding Name}" Padding="8" Margin="5,0,0,0"/>
+                                                        </Expander.Header>
+                                                        <Expander.Content>
+                                                            <ItemsPresenter />
+                                                        </Expander.Content>
+                                                    </Expander>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
+                            </GroupStyle>
+
+                            <!-- Второй уровень: Счёт -->
+                            <GroupStyle>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="{x:Type GroupItem}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                    <Expander IsExpanded="True" Background="#F0F0F0">
+                                                        <Expander.Header>
+                                                            <TextBlock FontWeight="SemiBold" FontSize="13" Text="{Binding Name}" Padding="5,2,5,2" Margin="20,0,0,0"/>
+                                                        </Expander.Header>
+                                                        <Expander.Content>
+                                                            <ItemsPresenter />
+                                                        </Expander.Content>
+                                                    </Expander>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
+                            </GroupStyle>
+                        </DataGrid.GroupStyle>
+                        <DataGrid.Columns>
+                            <DataGridTemplateColumn Header="✓" Width="30">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="№" Binding="{Binding RowNumber}" Width="40" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Дата" Binding="{Binding operation_date, StringFormat=\{0:dd.MM.yyyy\}}" Width="80" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Тип" Binding="{Binding category_type}" Width="70" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Категория" Binding="{Binding category_name}" Width="130" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Сумма" Binding="{Binding amount, StringFormat=\{0:N2\}}" Width="90" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Магазин/Описание" Binding="{Binding merchant_name}" Width="*" IsReadOnly="True"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Аналитика и Графики">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Фильтры -->
+                    <WrapPanel Grid.Row="0" Margin="0,0,0,10" VerticalAlignment="Center">
+                        <TextBlock Text="Период с:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <DatePicker x:Name="StartDatePicker" Width="120" VerticalAlignment="Center"/>
+
+                        <TextBlock Text="по:" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                        <DatePicker x:Name="EndDatePicker" Width="120" VerticalAlignment="Center"/>
+
+                        <TextBlock Text="Банк:" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                        <ComboBox x:Name="BankFilterComboBox" Width="150" DisplayMemberPath="bank_name" SelectedValuePath="id_bank" SelectionChanged="BankFilter_SelectionChanged"/>
+
+                        <TextBlock Text="Счёт:" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                        <ComboBox x:Name="AccountFilterComboBox" Width="180" DisplayMemberPath="Display" SelectedValuePath="id_account"/>
+
+                        <Button Content="Обновить" Padding="10,5" Margin="20,0,0,0" Click="UpdateCharts_Click"/>
+                    </WrapPanel>
+
+                    <!-- Общие суммы -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock x:Name="TotalIncomeText" FontSize="16" FontWeight="Bold" Foreground="Green" Margin="0,0,30,0"/>
+                        <TextBlock x:Name="TotalExpenseText" FontSize="16" FontWeight="Bold" Foreground="Red"/>
+                    </StackPanel>
+
+                    <!-- Диаграммы с прокруткой -->
+                    <Grid Grid.Row="2">
+                        <!-- Добавлен PreviewMouseWheel -->
+                        <ScrollViewer x:Name="ChartsScrollViewer" VerticalScrollBarVisibility="Auto" PreviewMouseWheel="ChartsScrollViewer_PreviewMouseWheel">
+                            
+                            <StackPanel x:Name="ChartsPanel">
+                                <StackPanel.LayoutTransform>
+                                    <ScaleTransform x:Name="ChartsScaleTransform" ScaleX="1" ScaleY="1"/>
+                                </StackPanel.LayoutTransform>
+
+                                <GroupBox Header="Расходы по категориям" Margin="0,0,0,10">
+                                    <lvc:PieChart x:Name="ExpenseChart" LegendPosition="Right" />
+                                </GroupBox>
+                                <GroupBox Header="Доходы по категориям" Margin="0,0,0,10">
+                                    <lvc:PieChart x:Name="IncomeChart" LegendPosition="Right" />
+                                </GroupBox>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+
+                    <!-- Совет -->
+                    <Border Grid.Row="3" Background="#FFF3CD" BorderBrush="#FFEBAA" BorderThickness="1" CornerRadius="5" Padding="10" Margin="0,10,0,0">
+                        <TextBlock x:Name="AdviceText" FontSize="14" TextWrapping="Wrap" VerticalAlignment="Center"/>
+                    </Border>
+                </Grid>
+            </TabItem>
+            <!-- Вкладка 3: Детализация по продуктам (Пункт 6 ТЗ) -->
+            <TabItem Header="Детализация по продуктам">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Фильтры (копируем из вкладки Аналитики) -->
+                    <WrapPanel Grid.Row="0" Margin="0,0,0,10" VerticalAlignment="Center">
+                        <TextBlock Text="Период с:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                        <DatePicker x:Name="StartDatePickerDetails" Width="120" VerticalAlignment="Center"/>
+
+                        <TextBlock Text="по:" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                        <DatePicker x:Name="EndDatePickerDetails" Width="120" VerticalAlignment="Center"/>
+
+                        <TextBlock Text="Банк:" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                        <ComboBox x:Name="BankFilterDetailsComboBox" Width="150" DisplayMemberPath="bank_name" SelectedValuePath="id_bank" SelectionChanged="BankFilterDetails_SelectionChanged"/>
+
+                        <TextBlock Text="Счёт:" VerticalAlignment="Center" Margin="15,0,5,0"/>
+                        <ComboBox x:Name="AccountFilterDetailsComboBox" Width="180" DisplayMemberPath="Display" SelectedValuePath="id_account"/>
+
+                        <Button Content="Показать" Padding="10,5" Margin="20,0,0,0" Click="UpdateDetails_Click"/>
+                    </WrapPanel>
+
+                    <!-- Таблица с группировкой -->
+                    <DataGrid Grid.Row="1" x:Name="MerchantDetailsGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                        <DataGrid.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="{x:Type GroupItem}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                    <Expander IsExpanded="True" Background="#F0F0F0" Margin="0,5,0,0">
+                                                        <Expander.Header>
+                                                            <TextBlock FontWeight="Bold" FontSize="14" Text="{Binding Name}" Padding="5"/>
+                                                        </Expander.Header>
+                                                        <Expander.Content>
+                                                            <ItemsPresenter />
+                                                        </Expander.Content>
+                                                    </Expander>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
+                            </GroupStyle>
+                        </DataGrid.GroupStyle>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Продукт / Магазин" Binding="{Binding MerchantName}" Width="*"/>
+                            <DataGridTextColumn Header="Кол-во операций" Binding="{Binding TransactionCount}" Width="150"/>
+                            <DataGridTextColumn Header="Общая сумма" Binding="{Binding TotalAmount, StringFormat=\{0:N2\} ₽}" Width="150"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <!-- Вкладка: Финансовые цели -->
+            <TabItem Header="🎯 Финансовые цели">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                        <Button Content="➕ Новая цель" Padding="10,5" Click="AddGoal_Click"/>
+                        <Button Content="✏️ Редактировать" Padding="10,5" Margin="5,0,0,0" Click="EditGoal_Click"/>
+                        <Button Content="❌ Удалить" Padding="10,5" Margin="5,0,0,0" Click="DeleteGoal_Click"/>
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="1" x:Name="GoalsGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" RowHeight="40">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Цель" Binding="{Binding goal_name}" Width="150"/>
+                            <DataGridTextColumn Header="Нужно" Binding="{Binding target_amount, StringFormat=\{0:N0\} ₽}" Width="100"/>
+                            <DataGridTextColumn Header="Накоплено" Binding="{Binding current_amount, StringFormat=\{0:N0\} ₽}" Width="100"/>
+                            <!-- Красивый прогресс-бар -->
+                            <DataGridTemplateColumn Header="Прогресс" Width="*">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Grid VerticalAlignment="Center" Margin="5">
+                                            <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100" Height="15" Foreground="Green" Background="#EEE"/>
+                                            <TextBlock Text="{Binding ProgressPercent, Mode=OneWay, StringFormat={}{0:F2}%}" HorizontalAlignment="Center" VerticalAlignment="Center" FontSize="10" FontWeight="Bold"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Дедлайн" Binding="{Binding deadline}" Width="100"/>
+                            <DataGridTextColumn Header="Статус" Binding="{Binding status}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <!-- Вкладка 4: Администрирование (Видна только админу) -->
+            <TabItem Header="⚙️ Администрирование" x:Name="AdminTab">
+                <TabControl Margin="5">
+
+                    <!-- Подвкладка: Пользователи -->
+                    <TabItem Header="Пользователи">
+                        <Grid Margin="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                                <Button Content="➕ Добавить пользователя" Padding="10,5" Click="AdminAddUser_Click"/>
+                            </StackPanel>
+                            <DataGrid Grid.Row="1" x:Name="AdminUsersGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="ID" Binding="{Binding id_users}" Width="50"/>
+                                    <DataGridTextColumn Header="Логин" Binding="{Binding login_user}" Width="150"/>
+                                    <DataGridTextColumn Header="ФИО" Binding="{Binding full_name}" Width="*"/>
+                                    <DataGridTextColumn Header="Роль" Binding="{Binding role_user}" Width="100"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+                   
+                    <!-- Подвкладка: Категории -->
+                    <TabItem Header="Категории">
+                        <Grid Margin="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                                <Button Content="➕ Добавить" Padding="10,5" Click="AdminAddCategory_Click"/>
+                                <Button Content="✏️ Ред." Padding="10,5" Margin="5,0,0,0" Click="AdminEditCategory_Click"/>
+                                <Button Content="❌ Удалить" Padding="10,5" Margin="5,0,0,0" Click="AdminDeleteCategory_Click"/>
+                            </StackPanel>
+                            <DataGrid Grid.Row="1" x:Name="AdminCategoriesGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="ID" Binding="{Binding id_category}" Width="50"/>
+                                    <DataGridTextColumn Header="Название" Binding="{Binding category_name}" Width="*"/>
+                                    <DataGridTextColumn Header="Тип" Binding="{Binding category_type}" Width="100"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Подвкладка: MCC -->
+                    <TabItem Header="MCC Коды">
+                        <Grid Margin="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                                <Button Content="➕ Добавить" Padding="10,5" Click="AdminAddMcc_Click"/>
+                                <Button Content="✏️ Ред." Padding="10,5" Margin="5,0,0,0" Click="AdminEditMcc_Click"/>
+                                <Button Content="❌ Удалить" Padding="10,5" Margin="5,0,0,0" Click="AdminDeleteMcc_Click"/>
+                            </StackPanel>
+                            <DataGrid Grid.Row="1" x:Name="AdminMccGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="ID" Binding="{Binding id_mapping}" Width="50"/>
+                                    <DataGridTextColumn Header="MCC" Binding="{Binding mcc_code}" Width="80"/>
+                                    <DataGridTextColumn Header="Категория" Binding="{Binding CategoryName}" Width="*"/>
+                                    <DataGridTextColumn Header="Банк" Binding="{Binding BankName}" Width="150"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Подвкладка: Ключевые слова -->
+                    <TabItem Header="Ключевые слова">
+                        <Grid Margin="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                                <Button Content="➕ Добавить" Padding="10,5" Click="AdminAddKeyword_Click"/>
+                                <Button Content="✏️ Ред." Padding="10,5" Margin="5,0,0,0" Click="AdminEditKeyword_Click"/>
+                                <Button Content="❌ Удалить" Padding="10,5" Margin="5,0,0,0" Click="AdminDeleteKeyword_Click"/>
+                            </StackPanel>
+                            <DataGrid Grid.Row="1" x:Name="AdminKeywordGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="ID" Binding="{Binding id_keyword}" Width="50"/>
+                                    <DataGridTextColumn Header="Ключевое слово" Binding="{Binding keyword}" Width="200"/>
+                                    <DataGridTextColumn Header="Категория" Binding="{Binding CategoryName}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Подвкладка: Категории банков -->
+                    <TabItem Header="Маппинг банков">
+                        <Grid Margin="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                                <Button Content="➕ Добавить" Padding="10,5" Click="AdminAddCatMap_Click"/>
+                                <Button Content="✏️ Ред." Padding="10,5" Margin="5,0,0,0" Click="AdminEditCatMap_Click"/>
+                                <Button Content="❌ Удалить" Padding="10,5" Margin="5,0,0,0" Click="AdminDeleteCatMap_Click"/>
+                            </StackPanel>
+                            <DataGrid Grid.Row="1" x:Name="AdminCatMapGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="ID" Binding="{Binding id_category_mapping}" Width="50"/>
+                                    <DataGridTextColumn Header="Банк" Binding="{Binding BankName}" Width="150"/>
+                                    <DataGridTextColumn Header="Категория банка" Binding="{Binding bank_category}" Width="200"/>
+                                    <DataGridTextColumn Header="Наша категория" Binding="{Binding CategoryName}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Подвкладка: Алиасы магазинов -->
+                    <TabItem Header="Алиасы магазинов">
+                        <Grid Margin="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                                <Button Content="➕ Добавить" Padding="10,5" Click="AdminAddAlias_Click"/>
+                                <Button Content="✏️ Ред." Padding="10,5" Margin="5,0,0,0" Click="AdminEditAlias_Click"/>
+                                <Button Content="❌ Удалить" Padding="10,5" Margin="5,0,0,0" Click="AdminDeleteAlias_Click"/>
+                            </StackPanel>
+                            <DataGrid Grid.Row="1" x:Name="AdminAliasesGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="ID" Binding="{Binding id_alias}" Width="50"/>
+                                    <DataGridTextColumn Header="Каноническое имя" Binding="{Binding merchant_canonical}" Width="*"/>
+                                    <DataGridTextColumn Header="Сырой шаблон (из банка)" Binding="{Binding raw_pattern}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- Подвкладка: Банки -->
+                    <TabItem Header="Банки">
+                        <Grid Margin="5">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
+                                <Button Content="➕ Добавить банк" Padding="10,5" Click="AdminAddBank_Click"/>
+                            </StackPanel>
+                            <DataGrid Grid.Row="1" x:Name="AdminBanksGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="ID" Binding="{Binding id_bank}" Width="50"/>
+                                    <DataGridTextColumn Header="Название банка" Binding="{Binding bank_name}" Width="*"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
+            </TabItem>
+        </TabControl>
+       
+    </Grid>
+</Window>
